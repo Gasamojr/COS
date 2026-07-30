@@ -8,13 +8,15 @@ data class ServiceOrder(
     @PrimaryKey
     val osNumber: String,
     val clientName: String,
+    val sellerName: String = "",
     val serviceDescription: String,
     val issueDate: String,      // Format: DD/MM/YYYY or YYYY-MM-DD
     val deliveryDate: String,   // Format: DD/MM/YYYY or YYYY-MM-DD
     val currentStageIndex: Int = 0, // 0 to 7 matching production stages
     val status: String = STATUS_AWAITING, // Status: Aguardando, Em Produção, Finalizada, Expedida, Entregue, Atrasada
     val updatedAt: Long = System.currentTimeMillis(),
-    val notes: String = ""
+    val notes: String = "",
+    val producedQuantity: Int? = null
 ) {
     companion object {
         const val STATUS_AWAITING = "Aguardando"

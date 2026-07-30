@@ -18,7 +18,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Shield
@@ -357,12 +360,15 @@ fun AdvanceStageDialog(
     currentStageIndex: Int,
     targetStageIndex: Int?,
     notes: String,
+    producedQuantityInput: String = "",
     onNotesChange: (String) -> Unit,
+    onProducedQuantityChange: (String) -> Unit = {},
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
     val nextIndex = targetStageIndex ?: (currentStageIndex + 1)
     val nextStage = DEFAULT_STAGES.getOrNull(nextIndex)
+    val isConferenciaStage = nextIndex == 5 || currentStageIndex == 5 || nextIndex >= 5
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -437,13 +443,66 @@ fun AdvanceStageDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                if (isConferenciaStage) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Conferência - Quantidade Produzida",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = producedQuantityInput,
+                                onValueChange = { input ->
+                                    if (input.isEmpty() || input.all { it.isDigit() }) {
+                                        onProducedQuantityChange(input)
+                                    }
+                                },
+                                label = { Text("Quantidade Produzida (unidades)") },
+                                placeholder = { Text("Ex: 5000") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Inventory,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("produced_quantity_input"),
+                                shape = RoundedCornerShape(12.dp),
+                                singleLine = true
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 OutlinedTextField(
                     value = notes,
                     onValueChange = onNotesChange,
                     label = { Text("Observações (opcional)") },
-                    placeholder = { Text("Ex: Impressão ajustada, sem defeitos") },
+                    placeholder = { Text("Ex: Impressão e corte ajustados, sem defeitos") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("advance_notes_input"),
@@ -469,6 +528,68 @@ fun AdvanceStageDialog(
                         Text("Confirmar Avanço")
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun RestrictedAccessCard(
+    title: String = "Acesso Restrito",
+    message: String = "Você não possui o privilégio necessário para acessar esta funcionalidade. Entre em contato com o Administrador ou Supervisor.",
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                    shape = CircleShape,
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.error
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = message,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
             }
         }
     }

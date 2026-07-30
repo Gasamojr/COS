@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -98,6 +99,7 @@ class ServiceOrderViewModel(application: Application) : AndroidViewModel(applica
     val selectedStatusFilter = MutableStateFlow<String?>(null)
     val selectedStageFilter = MutableStateFlow<Int?>(null)
     val selectedClientFilter = MutableStateFlow<String?>(null)
+    val selectedSellerFilter = MutableStateFlow<String?>(null)
 
     // CSV Import State
     val csvInputText = MutableStateFlow("")
@@ -108,6 +110,7 @@ class ServiceOrderViewModel(application: Application) : AndroidViewModel(applica
     val selectedOsNumber = MutableStateFlow<String?>(null)
     val showAdvanceModal = MutableStateFlow(false)
     val advanceNotes = MutableStateFlow("")
+    val advanceProducedQuantity = MutableStateFlow("")
     val targetStageForAdvance = MutableStateFlow<Int?>(null)
 
     // UI Dialogs
@@ -117,25 +120,57 @@ class ServiceOrderViewModel(application: Application) : AndroidViewModel(applica
     // Flow for raw orders
     private val rawOrders = repository.allOrders
 
+    // Available distinct sellers list
+    val availableSellers: StateFlow<List<String>> = rawOrders.map { orders ->
+        orders.map { it.sellerName.trim() }.filter { it.isNotBlank() }.distinct().sorted()
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     // Filtered orders list
     val filteredOrders: StateFlow<List<ServiceOrder>> = combine(
         rawOrders,
         searchQuery,
         selectedStatusFilter,
         selectedStageFilter,
-        selectedClientFilter
-    ) { orders, query, status, stage, client ->
+        selectedClientFilter,
+        selectedSellerFilter,
+        currentUser
+    ) { flowArray ->
+        @Suppress("UNCHECKED_CAST")
+        val orders = flowArray[0] as List<ServiceOrder>
+        val query = flowArray[1] as String
+        val status = flowArray[2] as String?
+        val stage = flowArray[3] as Int?
+        val client = flowArray[4] as String?
+        val seller = flowArray[5] as String?
+        val user = flowArray[6] as User
+
+        val isSellerRole = user.role == User.ROLE_SELLER
+        val userFirstName = user.name.split(" ").firstOrNull().orEmpty()
+
         orders.filter { order ->
+            val isSellerMatch = if (isSellerRole) {
+                order.sellerName.isBlank() ||
+                        order.sellerName.contains(user.name, ignoreCase = true) ||
+                        user.name.contains(order.sellerName, ignoreCase = true) ||
+                        (userFirstName.length >= 3 && order.sellerName.contains(userFirstName, ignoreCase = true))
+            } else true
+
             val matchesQuery = query.isBlank() ||
                     order.osNumber.contains(query, ignoreCase = true) ||
                     order.clientName.contains(query, ignoreCase = true) ||
+                    order.sellerName.contains(query, ignoreCase = true) ||
                     order.serviceDescription.contains(query, ignoreCase = true)
 
             val matchesStatus = status == null || order.status.equals(status, ignoreCase = true)
             val matchesStage = stage == null || order.currentStageIndex == stage
             val matchesClient = client == null || order.clientName.equals(client, ignoreCase = true)
+            val matchesSeller = seller == null || order.sellerName.contains(seller, ignoreCase = true)
 
-            matchesQuery && matchesStatus && matchesStage && matchesClient
+            isSellerMatch && matchesQuery && matchesStatus && matchesStage && matchesClient && matchesSeller
         }
     }.stateIn(
         scope = viewModelScope,
@@ -168,16 +203,31 @@ class ServiceOrderViewModel(application: Application) : AndroidViewModel(applica
     )
 
     // Dashboard metrics
-    val dashboardMetrics: StateFlow<DashboardMetrics> = rawOrders.combine(
-        MutableStateFlow(Unit)
-    ) { orders, _ ->
+    val dashboardMetrics: StateFlow<DashboardMetrics> = combine(
+        rawOrders,
+        currentUser
+    ) { orders, user ->
+        val isSellerRole = user.role == User.ROLE_SELLER
+        val userFirstName = user.name.split(" ").firstOrNull().orEmpty()
+
+        val roleOrders = if (isSellerRole) {
+            orders.filter { order ->
+                order.sellerName.isBlank() ||
+                        order.sellerName.contains(user.name, ignoreCase = true) ||
+                        user.name.contains(order.sellerName, ignoreCase = true) ||
+                        (userFirstName.length >= 3 && order.sellerName.contains(userFirstName, ignoreCase = true))
+            }
+        } else {
+            orders
+        }
+
         DashboardMetrics(
-            totalOrders = orders.size,
-            inProductionCount = orders.count { it.status == ServiceOrder.STATUS_IN_PRODUCTION || (it.currentStageIndex in 1..5 && it.status != ServiceOrder.STATUS_DELAYED) },
-            delayedCount = orders.count { it.status == ServiceOrder.STATUS_DELAYED },
-            finishedCount = orders.count { it.status == ServiceOrder.STATUS_FINISHED },
-            dispatchedCount = orders.count { it.status == ServiceOrder.STATUS_DISPATCHED || it.currentStageIndex == 6 },
-            deliveredCount = orders.count { it.status == ServiceOrder.STATUS_DELIVERED || it.currentStageIndex == 7 }
+            totalOrders = roleOrders.size,
+            inProductionCount = roleOrders.count { it.status == ServiceOrder.STATUS_IN_PRODUCTION || (it.currentStageIndex in 1..5 && it.status != ServiceOrder.STATUS_DELAYED) },
+            delayedCount = roleOrders.count { it.status == ServiceOrder.STATUS_DELAYED },
+            finishedCount = roleOrders.count { it.status == ServiceOrder.STATUS_FINISHED },
+            dispatchedCount = roleOrders.count { it.status == ServiceOrder.STATUS_DISPATCHED || it.currentStageIndex == 6 },
+            deliveredCount = roleOrders.count { it.status == ServiceOrder.STATUS_DELIVERED || it.currentStageIndex == 7 }
         )
     }.stateIn(
         scope = viewModelScope,
@@ -212,6 +262,10 @@ class ServiceOrderViewModel(application: Application) : AndroidViewModel(applica
         selectedStageFilter.value = if (selectedStageFilter.value == stageIndex) null else stageIndex
     }
 
+    fun setSellerFilter(sellerName: String?) {
+        selectedSellerFilter.value = if (selectedSellerFilter.value == sellerName) null else sellerName
+    }
+
     fun selectOrderForDetail(osNumber: String?) {
         selectedOsNumber.value = osNumber
     }
@@ -219,25 +273,35 @@ class ServiceOrderViewModel(application: Application) : AndroidViewModel(applica
     fun openAdvanceModal(targetStageIndex: Int? = null) {
         targetStageForAdvance.value = targetStageIndex
         advanceNotes.value = ""
+        advanceProducedQuantity.value = selectedOrder.value?.producedQuantity?.toString() ?: ""
         showAdvanceModal.value = true
     }
 
     fun closeAdvanceModal() {
         showAdvanceModal.value = false
         advanceNotes.value = ""
+        advanceProducedQuantity.value = ""
         targetStageForAdvance.value = null
     }
 
     fun confirmStageAdvance() {
         val osNum = selectedOsNumber.value ?: return
+        val qty = advanceProducedQuantity.value.trim().toIntOrNull()
         viewModelScope.launch {
             repository.advanceOrderStage(
                 osNumber = osNum,
                 currentUser = currentUser.value,
                 targetStageIndex = targetStageForAdvance.value,
-                notes = advanceNotes.value
+                notes = advanceNotes.value,
+                producedQuantity = qty
             )
             closeAdvanceModal()
+        }
+    }
+
+    fun updateProducedQuantity(osNumber: String, quantity: Int?) {
+        viewModelScope.launch {
+            repository.updateProducedQuantity(osNumber, quantity)
         }
     }
 

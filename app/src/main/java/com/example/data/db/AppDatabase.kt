@@ -17,7 +17,7 @@ import com.example.data.model.StageHistory
         StageHistory::class,
         AppNotification::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

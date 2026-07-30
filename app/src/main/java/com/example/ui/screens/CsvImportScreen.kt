@@ -112,9 +112,10 @@ fun CsvImportScreen(
                     val fields = listOf(
                         "1. Número da O.S.",
                         "2. Nome do cliente",
-                        "3. Descrição do serviço",
-                        "4. Data de emissão",
-                        "5. Data de entrega"
+                        "3. Vendedor (Comercial / Rep)",
+                        "4. Descrição do serviço",
+                        "5. Data de emissão",
+                        "6. Data de entrega"
                     )
 
                     fields.forEach { field ->

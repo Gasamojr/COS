@@ -308,7 +308,7 @@ fun SettingsScreen(
                         }
                     }
 
-                    if (onNavigateToRegister != null) {
+                    if (onNavigateToRegister != null && currentUser.hasPrivilege(User.PRIVILEGE_MANAGE_USERS)) {
                         Spacer(modifier = Modifier.height(12.dp))
                         androidx.compose.material3.OutlinedButton(
                             onClick = onNavigateToRegister,
@@ -439,28 +439,39 @@ fun SettingsScreen(
                                         )
                                     }
 
+                                    val canManageUsers = currentUser.hasPrivilege(User.PRIVILEGE_MANAGE_USERS)
                                     Surface(
-                                        color = if (user.hasPrivilege(User.PRIVILEGE_DELETE_OS)) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
+                                        color = if (canManageUsers) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                                         shape = RoundedCornerShape(8.dp),
                                         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
-                                        modifier = Modifier.clickable { editingPrivilegesUser = user }
+                                        modifier = if (canManageUsers) Modifier.clickable { editingPrivilegesUser = user } else Modifier
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Edit,
-                                                contentDescription = "Editar Privilégios",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
+                                            if (canManageUsers) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Edit,
+                                                    contentDescription = "Editar Privilégios",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                            } else {
+                                                Icon(
+                                                    imageVector = Icons.Default.Lock,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                            }
                                             Text(
                                                 text = "${activePrivileges.size}/$totalPrivileges Permissões",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary
+                                                color = if (canManageUsers) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     }

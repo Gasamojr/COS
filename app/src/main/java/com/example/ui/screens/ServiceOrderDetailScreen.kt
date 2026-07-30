@@ -21,7 +21,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
@@ -48,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.DEFAULT_STAGES
 import com.example.data.model.ServiceOrder
 import com.example.data.model.StageHistory
+import com.example.data.model.User
 import com.example.data.util.DataExporter
 import com.example.ui.components.StatusBadge
 import com.example.ui.theme.StatusDelivered
@@ -65,6 +68,7 @@ fun ServiceOrderDetailScreen(
     val context = LocalContext.current
     val order by viewModel.selectedOrder.collectAsState()
     val historyLogs by viewModel.selectedOrderHistory.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
 
     if (order == null) {
         Box(
@@ -158,17 +162,40 @@ fun ServiceOrderDetailScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        Text(
-                            text = "Cliente",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = currentOrder.clientName,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Cliente",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = currentOrder.clientName,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            if (currentOrder.sellerName.isNotBlank()) {
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = "Vendedor / Rep.",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = currentOrder.sellerName,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(8.dp))
 
@@ -250,21 +277,82 @@ fun ServiceOrderDetailScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        if (currentOrder.currentStageIndex < DEFAULT_STAGES.size - 1) {
-                            Button(
-                                onClick = { viewModel.openAdvanceModal() },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("detail_advance_stage_button"),
-                                shape = RoundedCornerShape(12.dp)
+                        if (currentOrder.producedQuantity != null || currentOrder.currentStageIndex >= 5) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f),
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f)),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Avançar para Próxima Etapa", fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Icon(
-                                    imageVector = Icons.Default.ArrowForward,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                Row(
+                                    modifier = Modifier
+                                        .padding(12.dp)
+                                        .fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Inventory,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.tertiary,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = "Conferência - Quantidade Produzida",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                                            )
+                                            Text(
+                                                text = if (currentOrder.producedQuantity != null) "${currentOrder.producedQuantity} unidades" else "Nenhuma quantidade informada",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (currentOrder.producedQuantity != null) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        val canEdit = currentUser.hasPrivilege(User.PRIVILEGE_EDIT_OS)
+                        val isFinalDeliveryNext = currentOrder.currentStageIndex == DEFAULT_STAGES.size - 2
+                        val canApproveFinal = !isFinalDeliveryNext || currentUser.hasPrivilege(User.PRIVILEGE_APPROVE_DELIVERY)
+
+                        if (currentOrder.currentStageIndex < DEFAULT_STAGES.size - 1) {
+                            if (canEdit && canApproveFinal) {
+                                Button(
+                                    onClick = { viewModel.openAdvanceModal() },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("detail_advance_stage_button"),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Avançar para Próxima Etapa", fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowForward,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            } else {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text(
+                                        text = if (!canEdit) "🔒 Privilégio de Edição de O.S. necessário para avançar etapas." else "🔒 Privilégio 'Aprovar Entrega Final' necessário para concluir esta etapa.",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(12.dp)
+                                    )
+                                }
                             }
                         } else {
                             Surface(

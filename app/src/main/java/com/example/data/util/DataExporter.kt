@@ -12,10 +12,10 @@ object DataExporter {
 
     fun generateCsvReport(orders: List<ServiceOrder>): String {
         val sb = StringBuilder()
-        sb.append("Número O.S.;Cliente;Descrição;Data Emissão;Data Entrega;Etapa Atual;Status\n")
+        sb.append("Número O.S.;Cliente;Vendedor;Descrição;Data Emissão;Data Entrega;Etapa Atual;Status\n")
         orders.forEach { order ->
             val stageName = DEFAULT_STAGES.getOrNull(order.currentStageIndex)?.name ?: "Desconhecida"
-            sb.append("${order.osNumber};\"${order.clientName}\";\"${order.serviceDescription}\";${order.issueDate};${order.deliveryDate};\"$stageName\";${order.status}\n")
+            sb.append("${order.osNumber};\"${order.clientName}\";\"${order.sellerName}\";\"${order.serviceDescription}\";${order.issueDate};${order.deliveryDate};\"$stageName\";${order.status}\n")
         }
         return sb.toString()
     }
@@ -43,8 +43,9 @@ object DataExporter {
 
         orders.forEachIndexed { index, order ->
             val stageName = DEFAULT_STAGES.getOrNull(order.currentStageIndex)?.name ?: "N/A"
+            val sellerInfo = if (order.sellerName.isNotBlank()) " | Vendedor: ${order.sellerName}" else ""
             sb.append("${index + 1}. O.S.: ${order.osNumber}\n")
-            sb.append("   Cliente: ${order.clientName}\n")
+            sb.append("   Cliente: ${order.clientName}$sellerInfo\n")
             sb.append("   Descrição: ${order.serviceDescription}\n")
             sb.append("   Emissão: ${order.issueDate} | Entrega: ${order.deliveryDate}\n")
             sb.append("   Etapa: $stageName (${order.currentStageIndex + 1}/8)\n")

@@ -40,7 +40,8 @@ class ServiceOrderRepository(
         osNumber: String,
         currentUser: User,
         targetStageIndex: Int? = null,
-        notes: String = ""
+        notes: String = "",
+        producedQuantity: Int? = null
     ): Boolean = withContext(Dispatchers.IO) {
         val order = serviceOrderDao.getOrderByNumber(osNumber) ?: return@withContext false
         val currentStage = order.currentStageIndex
@@ -60,35 +61,46 @@ class ServiceOrderRepository(
             else -> ServiceOrder.STATUS_FINISHED
         }
 
+        val updatedQuantity = producedQuantity ?: order.producedQuantity
+
         val updatedOrder = order.copy(
             currentStageIndex = nextStageIndex,
             status = newStatus,
             updatedAt = System.currentTimeMillis(),
-            notes = if (notes.isNotBlank()) notes else order.notes
+            notes = if (notes.isNotBlank()) notes else order.notes,
+            producedQuantity = updatedQuantity
         )
 
         serviceOrderDao.updateOrder(updatedOrder)
 
         // Record history log
+        val quantityNote = if (producedQuantity != null) " [Qtd. Produzida: $producedQuantity un]" else ""
         val historyEntry = StageHistory(
             osNumber = osNumber,
             fromStage = fromStageName,
             toStage = toStageName,
             user = "${currentUser.name} (${currentUser.role})",
             timestamp = System.currentTimeMillis(),
-            notes = notes
+            notes = (notes + quantityNote).trim()
         )
         stageHistoryDao.insertHistory(historyEntry)
 
         // Insert notification
         val notification = AppNotification(
             title = "Avanço de Etapa - O.S. $osNumber",
-            message = "Movimentada de '$fromStageName' para '$toStageName' por ${currentUser.name}.",
+            message = "Movimentada de '$fromStageName' para '$toStageName' por ${currentUser.name}.${if (producedQuantity != null) " Quantidade conferida: $producedQuantity un." else ""}",
             type = AppNotification.TYPE_STAGE_CHANGE,
             osNumber = osNumber
         )
         notificationDao.insertNotification(notification)
 
+        true
+    }
+
+    suspend fun updateProducedQuantity(osNumber: String, quantity: Int?): Boolean = withContext(Dispatchers.IO) {
+        val order = serviceOrderDao.getOrderByNumber(osNumber) ?: return@withContext false
+        val updated = order.copy(producedQuantity = quantity, updatedAt = System.currentTimeMillis())
+        serviceOrderDao.updateOrder(updated)
         true
     }
 
@@ -119,6 +131,7 @@ class ServiceOrderRepository(
                 if (allowUpdateExisting) {
                     val updated = existing.copy(
                         clientName = incoming.clientName,
+                        sellerName = incoming.sellerName.ifBlank { existing.sellerName },
                         serviceDescription = incoming.serviceDescription,
                         issueDate = incoming.issueDate,
                         deliveryDate = incoming.deliveryDate,
@@ -183,9 +196,9 @@ class ServiceOrderRepository(
         // Set realistic stages for sample orders so the UI opens with rich graphic shop activity
         advanceOrderStage("OS-2026-0148", User.SAMPLE_USERS[1], targetStageIndex = 1, notes = "Impressão iniciada na máquina CTP Offset HD")
         advanceOrderStage("OS-2026-0147", User.SAMPLE_USERS[0], targetStageIndex = 2, notes = "Laminação fosca concluída")
-        advanceOrderStage("OS-2026-0146", User.SAMPLE_USERS[2], targetStageIndex = 5, notes = "Conferência de corte e dobra efetuada")
-        advanceOrderStage("OS-2026-0145", User.SAMPLE_USERS[1], targetStageIndex = 6, notes = "Embalado e pronto na Expedição")
-        advanceOrderStage("OS-2026-0141", User.SAMPLE_USERS[3], targetStageIndex = 7, notes = "Entregue e assinado pelo cliente")
+        advanceOrderStage("OS-2026-0146", User.SAMPLE_USERS[2], targetStageIndex = 5, notes = "Conferência de corte e dobra efetuada", producedQuantity = 3000)
+        advanceOrderStage("OS-2026-0145", User.SAMPLE_USERS[1], targetStageIndex = 6, notes = "Embalado e pronto na Expedição", producedQuantity = 15)
+        advanceOrderStage("OS-2026-0141", User.SAMPLE_USERS[3], targetStageIndex = 7, notes = "Entregue e assinado pelo cliente", producedQuantity = 10000)
 
         // Mark OS-2026-0147 as delayed for demonstration
         val delayed = serviceOrderDao.getOrderByNumber("OS-2026-0147")

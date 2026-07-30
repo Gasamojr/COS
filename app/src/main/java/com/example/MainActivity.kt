@@ -36,8 +36,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.sp
+import com.example.data.model.User
 import com.example.ui.components.AdvanceStageDialog
 import com.example.ui.components.NotificationsSheet
+import com.example.ui.components.RestrictedAccessCard
 import com.example.ui.components.TopUserHeader
 import com.example.ui.screens.CsvImportScreen
 import com.example.ui.screens.DashboardScreen
@@ -83,17 +85,26 @@ fun MainAppLayout(viewModel: ServiceOrderViewModel) {
 
     val showAdvanceModal by viewModel.showAdvanceModal.collectAsState()
     val advanceNotes by viewModel.advanceNotes.collectAsState()
+    val advanceProducedQuantity by viewModel.advanceProducedQuantity.collectAsState()
     val targetStageForAdvance by viewModel.targetStageForAdvance.collectAsState()
 
     var showNotificationsSheet by remember { mutableStateOf(false) }
 
-    val navItems = listOf(
+    val allNavItems = listOf(
         NavTabItem("dashboard", "Painel", Icons.Default.Speed),
         NavTabItem("os_list", "O.S.", Icons.Default.Assignment),
         NavTabItem("import_csv", "Importar", Icons.Default.FileUpload),
         NavTabItem("reports", "Relatórios", Icons.Default.Assessment),
         NavTabItem("settings", "Ajustes", Icons.Default.Settings)
     )
+
+    val navItems = allNavItems.filter { tab ->
+        when (tab.route) {
+            "import_csv" -> currentUser.hasPrivilege(User.PRIVILEGE_IMPORT_CSV)
+            "reports" -> currentUser.hasPrivilege(User.PRIVILEGE_EXPORT_REPORTS)
+            else -> true
+        }
+    }
 
     Scaffold(
         modifier = Modifier
@@ -141,7 +152,11 @@ fun MainAppLayout(viewModel: ServiceOrderViewModel) {
                         viewModel.selectOrderForDetail(osNumber)
                         currentRoute = "os_detail"
                     },
-                    onNavigateToImportCsv = { currentRoute = "import_csv" }
+                    onNavigateToImportCsv = {
+                        if (currentUser.hasPrivilege(User.PRIVILEGE_IMPORT_CSV)) {
+                            currentRoute = "import_csv"
+                        }
+                    }
                 )
 
                 "os_list" -> ServiceOrderListScreen(
@@ -157,27 +172,62 @@ fun MainAppLayout(viewModel: ServiceOrderViewModel) {
                     onBackClick = { currentRoute = "os_list" }
                 )
 
-                "import_csv" -> CsvImportScreen(viewModel = viewModel)
+                "import_csv" -> {
+                    if (currentUser.hasPrivilege(User.PRIVILEGE_IMPORT_CSV)) {
+                        CsvImportScreen(viewModel = viewModel)
+                    } else {
+                        RestrictedAccessCard(
+                            title = "Importação de CSV Indisponível",
+                            message = "Seu perfil (${currentUser.role}) não possui permissão para importar arquivos CSV. Solicite ao Administrador ou Supervisor."
+                        )
+                    }
+                }
 
-                "reports" -> ReportsScreen(viewModel = viewModel)
+                "reports" -> {
+                    if (currentUser.hasPrivilege(User.PRIVILEGE_EXPORT_REPORTS)) {
+                        ReportsScreen(viewModel = viewModel)
+                    } else {
+                        RestrictedAccessCard(
+                            title = "Relatórios Indisponíveis",
+                            message = "Seu perfil (${currentUser.role}) não possui privilégio de exportar e visualizar relatórios."
+                        )
+                    }
+                }
 
                 "settings" -> SettingsScreen(
                     viewModel = viewModel,
                     onNavigateToLogin = { currentRoute = "login" },
-                    onNavigateToRegister = { currentRoute = "register_user" }
+                    onNavigateToRegister = {
+                        if (currentUser.hasPrivilege(User.PRIVILEGE_MANAGE_USERS)) {
+                            currentRoute = "register_user"
+                        }
+                    }
                 )
 
                 "login" -> LoginScreen(
                     viewModel = viewModel,
                     onLoginSuccess = { currentRoute = "dashboard" },
-                    onRegisterClick = { currentRoute = "register_user" }
+                    onRegisterClick = {
+                        if (currentUser.hasPrivilege(User.PRIVILEGE_MANAGE_USERS)) {
+                            currentRoute = "register_user"
+                        }
+                    }
                 )
 
-                "register_user" -> UserRegistrationScreen(
-                    viewModel = viewModel,
-                    onBackClick = { currentRoute = "login" },
-                    onRegistrationSuccess = { currentRoute = "dashboard" }
-                )
+                "register_user" -> {
+                    if (currentUser.hasPrivilege(User.PRIVILEGE_MANAGE_USERS)) {
+                        UserRegistrationScreen(
+                            viewModel = viewModel,
+                            onBackClick = { currentRoute = "login" },
+                            onRegistrationSuccess = { currentRoute = "dashboard" }
+                        )
+                    } else {
+                        RestrictedAccessCard(
+                            title = "Cadastro de Usuários Restrito",
+                            message = "Apenas administradores e supervisores com permissão de gerenciamento de usuários podem cadastrar novos operadores."
+                        )
+                    }
+                }
             }
         }
 
@@ -188,7 +238,9 @@ fun MainAppLayout(viewModel: ServiceOrderViewModel) {
                 currentStageIndex = selectedOrder!!.currentStageIndex,
                 targetStageIndex = targetStageForAdvance,
                 notes = advanceNotes,
+                producedQuantityInput = advanceProducedQuantity,
                 onNotesChange = { viewModel.advanceNotes.value = it },
+                onProducedQuantityChange = { viewModel.advanceProducedQuantity.value = it },
                 onDismiss = { viewModel.closeAdvanceModal() },
                 onConfirm = { viewModel.confirmStageAdvance() }
             )

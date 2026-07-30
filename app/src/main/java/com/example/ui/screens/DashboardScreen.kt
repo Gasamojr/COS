@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.DEFAULT_STAGES
 import com.example.data.model.ServiceOrder
+import com.example.data.model.User
 import com.example.ui.components.MetricCard
 import com.example.ui.components.StatusBadge
 import com.example.ui.theme.StatusAwaiting
@@ -64,6 +65,7 @@ fun DashboardScreen(
     onNavigateToImportCsv: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val currentUser by viewModel.currentUser.collectAsState()
     val metrics by viewModel.dashboardMetrics.collectAsState()
     val orders by viewModel.filteredOrders.collectAsState()
     val recentOrders = orders.take(5)
@@ -82,7 +84,7 @@ fun DashboardScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Painel de Controle",
                         fontSize = 22.sp,
@@ -96,18 +98,20 @@ fun DashboardScreen(
                     )
                 }
 
-                Button(
-                    onClick = onNavigateToImportCsv,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.testTag("dashboard_import_csv_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.FileUpload,
-                        contentDescription = "Importar CSV",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Importar CSV", fontSize = 12.sp)
+                if (currentUser.hasPrivilege(User.PRIVILEGE_IMPORT_CSV)) {
+                    Button(
+                        onClick = onNavigateToImportCsv,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.testTag("dashboard_import_csv_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FileUpload,
+                            contentDescription = "Importar CSV",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Importar CSV", fontSize = 12.sp)
+                    }
                 }
             }
         }
@@ -317,12 +321,26 @@ fun DashboardScreen(
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = order.clientName,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = order.clientName,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (order.sellerName.isNotBlank()) {
+                            Text(
+                                text = "Vend: ${order.sellerName}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                     Text(
                         text = order.serviceDescription,
                         fontSize = 12.sp,

@@ -18,7 +18,7 @@ data class User(
             ROLE_ADMIN -> true
             ROLE_SUPERVISOR -> privilege != PRIVILEGE_DELETE_OS
             ROLE_PRE_PRESS, ROLE_PRINTING, ROLE_FINISHING -> privilege == PRIVILEGE_EDIT_OS || privilege == PRIVILEGE_CREATE_OS || privilege == PRIVILEGE_APPROVE_DELIVERY
-            ROLE_OPERATOR -> privilege == PRIVILEGE_EDIT_OS || privilege == PRIVILEGE_CREATE_OS
+            ROLE_OPERATOR, ROLE_SELLER -> privilege == PRIVILEGE_EDIT_OS || privilege == PRIVILEGE_CREATE_OS || privilege == PRIVILEGE_EXPORT_REPORTS
             else -> privilege == PRIVILEGE_EDIT_OS
         }
     }
@@ -30,6 +30,7 @@ data class User(
         val ROLE_FINISHING = "Acabamento"
         val ROLE_SUPERVISOR = "Supervisor"
         val ROLE_ADMIN = "Administrador"
+        val ROLE_SELLER = "Vendedor"
 
         val PRIVILEGE_CREATE_OS = "can_create_os"
         val PRIVILEGE_EDIT_OS = "can_edit_os"
@@ -55,6 +56,7 @@ data class User(
                 ROLE_SUPERVISOR -> setOf(PRIVILEGE_CREATE_OS, PRIVILEGE_EDIT_OS, PRIVILEGE_APPROVE_DELIVERY, PRIVILEGE_IMPORT_CSV, PRIVILEGE_EXPORT_REPORTS, PRIVILEGE_MANAGE_USERS)
                 ROLE_PRE_PRESS, ROLE_PRINTING, ROLE_FINISHING -> setOf(PRIVILEGE_CREATE_OS, PRIVILEGE_EDIT_OS, PRIVILEGE_APPROVE_DELIVERY)
                 ROLE_OPERATOR -> setOf(PRIVILEGE_CREATE_OS, PRIVILEGE_EDIT_OS)
+                ROLE_SELLER -> setOf(PRIVILEGE_CREATE_OS, PRIVILEGE_EDIT_OS, PRIVILEGE_EXPORT_REPORTS)
                 else -> setOf(PRIVILEGE_EDIT_OS)
             }
         }
@@ -64,6 +66,7 @@ data class User(
             ROLE_PRE_PRESS,
             ROLE_PRINTING,
             ROLE_FINISHING,
+            ROLE_SELLER,
             ROLE_SUPERVISOR,
             ROLE_ADMIN
         )
@@ -71,8 +74,9 @@ data class User(
         val SAMPLE_USERS = listOf(
             User("1", "João Silva", ROLE_OPERATOR, "#2196F3", "joao@grafica.com", "OP-101", "1234"),
             User("2", "Maria Santos", ROLE_PRE_PRESS, "#E91E63", "maria@grafica.com", "OP-102", "1234"),
-            User("3", "Carlos Oliveira", ROLE_SUPERVISOR, "#4CAF50", "carlos@grafica.com", "SUP-201", "1234"),
-            User("4", "Ana Rodrigues", ROLE_ADMIN, "#9C27B0", "ana@grafica.com", "ADM-001", "1234")
+            User("3", "Roberto Mendes", ROLE_SELLER, "#FF9800", "roberto@grafica.com", "VEN-501", "1234"),
+            User("4", "Carlos Oliveira", ROLE_SUPERVISOR, "#4CAF50", "carlos@grafica.com", "SUP-201", "1234"),
+            User("5", "Ana Rodrigues", ROLE_ADMIN, "#9C27B0", "ana@grafica.com", "ADM-001", "1234")
         )
     }
 }

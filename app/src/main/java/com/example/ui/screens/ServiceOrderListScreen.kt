@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.DEFAULT_STAGES
 import com.example.data.model.ServiceOrder
+import com.example.data.model.User
 import com.example.ui.components.StageStepperHorizontal
 import com.example.ui.components.StatusBadge
 import com.example.ui.theme.StatusDelayed
@@ -63,6 +64,9 @@ fun ServiceOrderListScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedStatus by viewModel.selectedStatusFilter.collectAsState()
     val selectedStage by viewModel.selectedStageFilter.collectAsState()
+    val selectedSeller by viewModel.selectedSellerFilter.collectAsState()
+    val availableSellers by viewModel.availableSellers.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
 
     Column(
         modifier = modifier
@@ -85,7 +89,7 @@ fun ServiceOrderListScreen(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { viewModel.setSearchQuery(it) },
-            placeholder = { Text("Buscar por N° O.S., Cliente ou Descrição...") },
+            placeholder = { Text("Buscar por N° O.S., Cliente, Vendedor ou Descrição...") },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Search,
@@ -157,6 +161,58 @@ fun ServiceOrderListScreen(
             }
         }
 
+        // Seller Filter Chips
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            item {
+                Text(
+                    text = "Vendedor:",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 10.dp, end = 4.dp)
+                )
+            }
+
+            item {
+                FilterChip(
+                    selected = selectedSeller == null,
+                    onClick = { viewModel.setSellerFilter(null) },
+                    label = { Text("Todos Vendedores") },
+                    modifier = Modifier.testTag("filter_seller_all")
+                )
+            }
+
+            val userFirstName = currentUser.name.split(" ").firstOrNull() ?: currentUser.name
+            val isMySellerSelected = selectedSeller != null && (selectedSeller!!.equals(userFirstName, ignoreCase = true) || currentUser.name.contains(selectedSeller!!, ignoreCase = true))
+            item {
+                FilterChip(
+                    selected = isMySellerSelected,
+                    onClick = {
+                        if (isMySellerSelected) {
+                            viewModel.setSellerFilter(null)
+                        } else {
+                            viewModel.setSellerFilter(userFirstName)
+                        }
+                    },
+                    label = { Text("Minhas O.S. (${userFirstName})") },
+                    modifier = Modifier.testTag("filter_seller_me")
+                )
+            }
+
+            items(availableSellers.filter { !it.contains(userFirstName, ignoreCase = true) }) { seller ->
+                val isSelected = selectedSeller == seller
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { viewModel.setSellerFilter(seller) },
+                    label = { Text(seller) },
+                    modifier = Modifier.testTag("filter_seller_$seller")
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(10.dp))
 
         Row(
@@ -197,6 +253,7 @@ fun ServiceOrderListScreen(
                 }
             }
         } else {
+            val canEdit = currentUser.hasPrivilege(User.PRIVILEGE_EDIT_OS)
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
@@ -204,6 +261,7 @@ fun ServiceOrderListScreen(
                 items(orders, key = { it.osNumber }) { order ->
                     ServiceOrderListItemCard(
                         order = order,
+                        canQuickAdvance = canEdit,
                         onCardClick = { onNavigateToDetail(order.osNumber) },
                         onQuickAdvanceClick = {
                             viewModel.selectOrderForDetail(order.osNumber)
@@ -222,6 +280,7 @@ fun ServiceOrderListScreen(
 @Composable
 private fun ServiceOrderListItemCard(
     order: ServiceOrder,
+    canQuickAdvance: Boolean,
     onCardClick: () -> Unit,
     onQuickAdvanceClick: () -> Unit
 ) {
@@ -252,12 +311,54 @@ private fun ServiceOrderListItemCard(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            Text(
-                text = order.clientName,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = order.clientName,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (order.sellerName.isNotBlank() || order.producedQuantity != null) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (order.sellerName.isNotBlank()) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "Vendedor: ${order.sellerName}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        if (order.producedQuantity != null) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "📦 ${order.producedQuantity} un",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             Text(
                 text = order.serviceDescription,
@@ -291,7 +392,7 @@ private fun ServiceOrderListItemCard(
                     )
                 }
 
-                if (order.currentStageIndex < DEFAULT_STAGES.size - 1) {
+                if (canQuickAdvance && order.currentStageIndex < DEFAULT_STAGES.size - 1) {
                     Button(
                         onClick = onQuickAdvanceClick,
                         shape = RoundedCornerShape(10.dp),
