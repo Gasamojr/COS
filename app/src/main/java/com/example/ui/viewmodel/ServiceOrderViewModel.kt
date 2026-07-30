@@ -45,11 +45,52 @@ class ServiceOrderViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    // Users Management State
+    val registeredUsers = MutableStateFlow<List<User>>(User.SAMPLE_USERS)
+
     // Active User State
     val currentUser = MutableStateFlow(User.SAMPLE_USERS[0]) // João Silva (Operador)
 
     fun setCurrentUser(user: User) {
         currentUser.value = user
+    }
+
+    fun registerUser(
+        name: String,
+        role: String,
+        email: String,
+        badgeNumber: String,
+        pin: String,
+        avatarColorHex: String = "#2196F3",
+        customPrivileges: Set<String>? = null
+    ): User {
+        val newId = (registeredUsers.value.size + 1).toString()
+        val newUser = User(
+            id = newId,
+            name = name,
+            role = role,
+            avatarColorHex = avatarColorHex,
+            email = email,
+            badgeNumber = badgeNumber,
+            pin = pin.ifBlank { "1234" },
+            customPrivileges = customPrivileges
+        )
+        registeredUsers.value = registeredUsers.value + newUser
+        currentUser.value = newUser
+        return newUser
+    }
+
+    fun updateUserPrivileges(userId: String, privileges: Set<String>) {
+        registeredUsers.value = registeredUsers.value.map { user ->
+            if (user.id == userId) {
+                user.copy(customPrivileges = privileges)
+            } else {
+                user
+            }
+        }
+        if (currentUser.value.id == userId) {
+            currentUser.value = currentUser.value.copy(customPrivileges = privileges)
+        }
     }
 
     // Search and Filters

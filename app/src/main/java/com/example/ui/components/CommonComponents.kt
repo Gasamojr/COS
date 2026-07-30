@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -136,31 +137,81 @@ fun TopUserHeader(
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = currentUser.role,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = currentUser.role,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val privilegesCount = (currentUser.customPrivileges ?: User.getDefaultPrivilegesForRole(currentUser.role)).size
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "${privilegesCount}P",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
             }
 
             DropdownMenu(
                 expanded = userMenuExpanded,
                 onDismissRequest = { userMenuExpanded = false }
             ) {
-                User.SAMPLE_USERS.forEach { user ->
-                    DropdownMenuItem(
-                        text = {
-                            Column {
-                                Text(user.name, fontWeight = FontWeight.SemiBold)
-                                Text(user.role, fontSize = 12.sp, color = Color.Gray)
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(
+                                text = "Privilégios de Acesso:",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            val privileges = currentUser.customPrivileges ?: User.getDefaultPrivilegesForRole(currentUser.role)
+                            User.ALL_PRIVILEGES.forEach { (key, label) ->
+                                if (privileges.contains(key)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+                                        Icon(
+                                            imageVector = Icons.Default.Shield,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(text = label, fontSize = 11.sp)
+                                    }
+                                }
                             }
-                        },
-                        onClick = {
-                            userMenuExpanded = false
-                            onUserSwitchClick()
                         }
-                    )
-                }
+                    },
+                    onClick = {},
+                    enabled = false
+                )
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Fazer Login / Alternar Operador", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    },
+                    onClick = {
+                        userMenuExpanded = false
+                        onUserSwitchClick()
+                    },
+                    modifier = Modifier.testTag("dropdown_login_option")
+                )
             }
         }
 

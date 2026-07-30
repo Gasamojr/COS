@@ -21,22 +21,31 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,9 +61,109 @@ import com.example.ui.viewmodel.ServiceOrderViewModel
 @Composable
 fun SettingsScreen(
     viewModel: ServiceOrderViewModel,
+    onNavigateToLogin: (() -> Unit)? = null,
+    onNavigateToRegister: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val registeredUsers by viewModel.registeredUsers.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    var editingPrivilegesUser by remember { mutableStateOf<User?>(null) }
+
+    if (editingPrivilegesUser != null) {
+        val targetUser = editingPrivilegesUser!!
+        var currentPrivileges by remember(targetUser) {
+            mutableStateOf(
+                targetUser.customPrivileges ?: User.getDefaultPrivilegesForRole(targetUser.role)
+            )
+        }
+
+        AlertDialog(
+            onDismissRequest = { editingPrivilegesUser = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Shield,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Privilégios de ${targetUser.name}",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Perfil: ${targetUser.role} • ${targetUser.badgeNumber}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            text = {
+                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                    Text(
+                        text = "Marque ou desmarque os privilégios de acesso do operador:",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    User.ALL_PRIVILEGES.forEach { (key, label) ->
+                        val isChecked = currentPrivileges.contains(key)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    currentPrivileges = if (isChecked) {
+                                        currentPrivileges - key
+                                    } else {
+                                        currentPrivileges + key
+                                    }
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = { checked ->
+                                    currentPrivileges = if (checked) {
+                                        currentPrivileges + key
+                                    } else {
+                                        currentPrivileges - key
+                                    }
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = label,
+                                fontSize = 12.sp,
+                                fontWeight = if (isChecked) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateUserPrivileges(targetUser.id, currentPrivileges)
+                        editingPrivilegesUser = null
+                    },
+                    modifier = Modifier.testTag("save_privileges_button")
+                ) {
+                    Text("Salvar Privilégios")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingPrivilegesUser = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 
     LazyColumn(
         modifier = modifier
@@ -168,7 +277,7 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    User.SAMPLE_USERS.forEach { user ->
+                    registeredUsers.forEach { user ->
                         val isSelected = currentUser.id == user.id
                         Row(
                             modifier = Modifier
@@ -191,10 +300,202 @@ fun SettingsScreen(
                                     fontSize = 14.sp
                                 )
                                 Text(
-                                    text = "Perfil: ${user.role}",
+                                    text = "Perfil: ${user.role}${if (user.badgeNumber.isNotBlank()) " • ${user.badgeNumber}" else ""}",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                        }
+                    }
+
+                    if (onNavigateToRegister != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = onNavigateToRegister,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("open_register_screen_button"),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Cadastrar Novo Operador")
+                        }
+                    }
+
+                    if (onNavigateToLogin != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = onNavigateToLogin,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("open_login_screen_button"),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Tela de Login / Autenticação com PIN")
+                        }
+                    }
+                }
+            }
+        }
+
+        // Privileges Matrix Card
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Shield,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Matriz de Privilégios do Sistema",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "${registeredUsers.size} Usuários",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Controle de permissões para ações críticas no sistema gráfico:",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    registeredUsers.forEach { user ->
+                        val activePrivileges = user.customPrivileges ?: User.getDefaultPrivilegesForRole(user.role)
+                        val totalPrivileges = User.ALL_PRIVILEGES.size
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = user.name,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
+                                        )
+                                        Text(
+                                            text = "${user.role} ${if (user.badgeNumber.isNotBlank()) "• ${user.badgeNumber}" else ""}",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    Surface(
+                                        color = if (user.hasPrivilege(User.PRIVILEGE_DELETE_OS)) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                                        modifier = Modifier.clickable { editingPrivilegesUser = user }
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Edit,
+                                                contentDescription = "Editar Privilégios",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "${activePrivileges.size}/$totalPrivileges Permissões",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    val topPrivileges = listOf(
+                                        User.PRIVILEGE_CREATE_OS to "Criar OS",
+                                        User.PRIVILEGE_EDIT_OS to "Apontar",
+                                        User.PRIVILEGE_APPROVE_DELIVERY to "Aprovar",
+                                        User.PRIVILEGE_MANAGE_USERS to "Gestão",
+                                        User.PRIVILEGE_DELETE_OS to "Excluir"
+                                    )
+
+                                    topPrivileges.forEach { (key, badge) ->
+                                        val hasIt = user.hasPrivilege(key)
+                                        Surface(
+                                            color = if (hasIt) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                            shape = RoundedCornerShape(4.dp)
+                                        ) {
+                                            Text(
+                                                text = badge,
+                                                fontSize = 9.sp,
+                                                fontWeight = if (hasIt) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (hasIt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

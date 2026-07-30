@@ -41,10 +41,12 @@ import com.example.ui.components.NotificationsSheet
 import com.example.ui.components.TopUserHeader
 import com.example.ui.screens.CsvImportScreen
 import com.example.ui.screens.DashboardScreen
+import com.example.ui.screens.LoginScreen
 import com.example.ui.screens.ReportsScreen
 import com.example.ui.screens.ServiceOrderDetailScreen
 import com.example.ui.screens.ServiceOrderListScreen
 import com.example.ui.screens.SettingsScreen
+import com.example.ui.screens.UserRegistrationScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.ServiceOrderViewModel
 
@@ -101,7 +103,7 @@ fun MainAppLayout(viewModel: ServiceOrderViewModel) {
             TopUserHeader(
                 currentUser = currentUser,
                 unreadNotificationsCount = unreadNotifications,
-                onUserSwitchClick = { currentRoute = "settings" },
+                onUserSwitchClick = { currentRoute = "login" },
                 onNotificationClick = { showNotificationsSheet = true }
             )
         },
@@ -159,7 +161,23 @@ fun MainAppLayout(viewModel: ServiceOrderViewModel) {
 
                 "reports" -> ReportsScreen(viewModel = viewModel)
 
-                "settings" -> SettingsScreen(viewModel = viewModel)
+                "settings" -> SettingsScreen(
+                    viewModel = viewModel,
+                    onNavigateToLogin = { currentRoute = "login" },
+                    onNavigateToRegister = { currentRoute = "register_user" }
+                )
+
+                "login" -> LoginScreen(
+                    viewModel = viewModel,
+                    onLoginSuccess = { currentRoute = "dashboard" },
+                    onRegisterClick = { currentRoute = "register_user" }
+                )
+
+                "register_user" -> UserRegistrationScreen(
+                    viewModel = viewModel,
+                    onBackClick = { currentRoute = "login" },
+                    onRegistrationSuccess = { currentRoute = "dashboard" }
+                )
             }
         }
 
