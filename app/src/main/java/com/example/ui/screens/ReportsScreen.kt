@@ -212,17 +212,79 @@ fun ReportsScreen(
             }
         }
 
-        // Report Statistics Header
+        // Report Statistics Header & Quantity Summary
         item {
-            Text(
-                text = "Resumo do Relatório (${orders.size} O.S. listadas)",
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = MaterialTheme.colorScheme.onBackground
-            )
+            val totalPlanned = orders.sumOf { it.getPlannedQuantity() }
+            val totalProduced = orders.sumOf { it.producedQuantity ?: 0 }
+            val totalDiff = totalProduced - totalPlanned
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Resumo do Relatório (${orders.size} O.S. listadas)",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Balanço de Produção x O.S.",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Previsto O.S.: $totalPlanned un  |  Produzido: $totalProduced un",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Surface(
+                            color = when {
+                                totalDiff > 0 -> MaterialTheme.colorScheme.tertiary
+                                totalDiff < 0 -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.primary
+                            },
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = when {
+                                    totalDiff > 0 -> "+$totalDiff un (Sobra)"
+                                    totalDiff < 0 -> "$totalDiff un (Pendente)"
+                                    else -> "Exata (0 un)"
+                                },
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         items(orders, key = { it.osNumber }) { order ->
+            val plannedQty = order.getPlannedQuantity()
+            val producedQty = order.producedQuantity
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -230,41 +292,110 @@ fun ReportsScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(14.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = order.osNumber,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = order.clientName,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Etapa: ${DEFAULT_STAGES.getOrNull(order.currentStageIndex)?.name}",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = order.osNumber,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = order.clientName,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Etapa: ${DEFAULT_STAGES.getOrNull(order.currentStageIndex)?.name}",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.End) {
+                            StatusBadge(status = order.status)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Entrega: ${order.deliveryDate}",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
-                    Column(horizontalAlignment = Alignment.End) {
-                        StatusBadge(status = order.status)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Entrega: ${order.deliveryDate}",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Qtd. O.S.: $plannedQty un",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (producedQty != null) "Qtd. Produzida: $producedQty un" else "Qtd. Produzida: Pendente",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            if (producedQty != null) {
+                                val diff = producedQty - plannedQty
+                                val (tagText, tagColor) = when {
+                                    diff > 0 -> Pair("Diferença: +$diff un (Excedente)", MaterialTheme.colorScheme.tertiary)
+                                    diff < 0 -> Pair("Diferença: $diff un (Incompleta)", MaterialTheme.colorScheme.error)
+                                    else -> Pair("Diferença: 0 un (Exata)", MaterialTheme.colorScheme.primary)
+                                }
+
+                                Surface(
+                                    color = tagColor.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(6.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, tagColor.copy(alpha = 0.4f))
+                                ) {
+                                    Text(
+                                        text = tagText,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = tagColor,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            } else {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = "Aguardando Conferência",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

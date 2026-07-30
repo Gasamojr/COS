@@ -18,6 +18,24 @@ data class ServiceOrder(
     val notes: String = "",
     val producedQuantity: Int? = null
 ) {
+    fun getPlannedQuantity(): Int {
+        val regexParen = Regex("""\(\s*(\d[\d\.\,]*)\s*(un|unid|unidades|pcs|pçs)?\s*\)""", RegexOption.IGNORE_CASE)
+        val matchParen = regexParen.find(serviceDescription)
+        if (matchParen != null) {
+            val digits = matchParen.groupValues[1].replace(".", "").replace(",", "").toIntOrNull()
+            if (digits != null && digits > 0) return digits
+        }
+
+        val regexUn = Regex("""(\d[\d\.\,]*)\s*(un|unid|unidades|pcs|pçs)""", RegexOption.IGNORE_CASE)
+        val matchUn = regexUn.find(serviceDescription)
+        if (matchUn != null) {
+            val digits = matchUn.groupValues[1].replace(".", "").replace(",", "").toIntOrNull()
+            if (digits != null && digits > 0) return digits
+        }
+
+        return 1000 // Default sensible fallback
+    }
+
     companion object {
         const val STATUS_AWAITING = "Aguardando"
         const val STATUS_IN_PRODUCTION = "Em Produção"

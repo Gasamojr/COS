@@ -239,6 +239,7 @@ fun MainAppLayout(viewModel: ServiceOrderViewModel) {
                 targetStageIndex = targetStageForAdvance,
                 notes = advanceNotes,
                 producedQuantityInput = advanceProducedQuantity,
+                plannedQuantity = selectedOrder!!.getPlannedQuantity(),
                 onNotesChange = { viewModel.advanceNotes.value = it },
                 onProducedQuantityChange = { viewModel.advanceProducedQuantity.value = it },
                 onDismiss = { viewModel.closeAdvanceModal() },

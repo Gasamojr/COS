@@ -31,6 +31,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -52,6 +53,7 @@ import com.example.data.model.User
 import com.example.ui.components.StageStepperHorizontal
 import com.example.ui.components.StatusBadge
 import com.example.ui.theme.StatusDelayed
+import com.example.ui.theme.StatusDelivered
 import com.example.ui.viewmodel.ServiceOrderViewModel
 
 @Composable
@@ -366,6 +368,50 @@ private fun ServiceOrderListItemCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2
             )
+
+            if (order.producedQuantity != null || order.currentStageIndex >= 5) {
+                val planned = order.getPlannedQuantity()
+                val produced = order.producedQuantity ?: 0
+                val progress = if (planned > 0) (produced.toFloat() / planned.toFloat()).coerceIn(0f, 1f) else 0f
+                val percent = (progress * 100).toInt()
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                        .padding(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (order.currentStageIndex >= 6) "Expedição/Despacho: $produced / $planned un" else "Conferência: $produced / $planned un",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Text(
+                            text = "$percent%",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (progress >= 1f) StatusDelivered else MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = if (progress >= 1f) StatusDelivered else MaterialTheme.colorScheme.tertiary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 

@@ -31,6 +31,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -54,6 +55,7 @@ import com.example.data.model.User
 import com.example.data.util.DataExporter
 import com.example.ui.components.StatusBadge
 import com.example.ui.theme.StatusDelivered
+import com.example.ui.theme.StatusDispatched
 import com.example.ui.viewmodel.ServiceOrderViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -277,6 +279,11 @@ fun ServiceOrderDetailScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
+                        val plannedQty = currentOrder.getPlannedQuantity()
+                        val producedQty = currentOrder.producedQuantity ?: 0
+                        val progressRatio = if (plannedQty > 0) (producedQty.toFloat() / plannedQty.toFloat()).coerceIn(0f, 1f) else 0f
+                        val progressPercent = (progressRatio * 100).toInt()
+
                         if (currentOrder.producedQuantity != null || currentOrder.currentStageIndex >= 5) {
                             Spacer(modifier = Modifier.height(12.dp))
                             Surface(
@@ -285,36 +292,80 @@ fun ServiceOrderDetailScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .padding(12.dp)
-                                        .fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = Icons.Default.Inventory,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.tertiary,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Inventory,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.tertiary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
                                             Text(
-                                                text = "Conferência - Quantidade Produzida",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Medium,
+                                                text = if (currentOrder.currentStageIndex >= 6) "Expedição - Progresso de Envio" else "Conferência - Controle de Quantidade",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.onTertiaryContainer
                                             )
-                                            Text(
-                                                text = if (currentOrder.producedQuantity != null) "${currentOrder.producedQuantity} unidades" else "Nenhuma quantidade informada",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (currentOrder.producedQuantity != null) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.error
-                                            )
                                         }
+                                        Text(
+                                            text = "$progressPercent%",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (progressRatio >= 1f) StatusDelivered else MaterialTheme.colorScheme.tertiary
+                                        )
                                     }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    LinearProgressIndicator(
+                                        progress = { progressRatio },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(8.dp)
+                                            .clip(RoundedCornerShape(4.dp)),
+                                        color = if (progressRatio >= 1f) StatusDelivered else MaterialTheme.colorScheme.tertiary,
+                                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Conferido/Enviado: $producedQty un",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                        Text(
+                                            text = "Total O.S.: $plannedQty un",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    Text(
+                                        text = if (progressRatio >= 1f) {
+                                            "✓ Lote 100% conferido e liberado na Expedição"
+                                        } else {
+                                            "⚠️ Carga incompleta (${producedQty} de ${plannedQty} un). A Conferência deve ser totalizada para liberar."
+                                        },
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (progressRatio >= 1f) StatusDelivered else MaterialTheme.colorScheme.error
+                                    )
                                 }
                             }
                         }
@@ -458,6 +509,25 @@ fun ServiceOrderDetailScreen(
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    if (currentOrder.producedQuantity != null) {
+                                        if (index == 5 && currentOrder.currentStageIndex >= 5) {
+                                            Text(
+                                                text = "📦 Qtd. Conferida: ${currentOrder.producedQuantity} un",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.tertiary,
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            )
+                                        } else if (index == 6 && currentOrder.currentStageIndex >= 6) {
+                                            Text(
+                                                text = "📦 Recebido da Conferência: ${currentOrder.producedQuantity} un",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = StatusDispatched,
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

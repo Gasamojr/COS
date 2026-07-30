@@ -361,6 +361,7 @@ fun AdvanceStageDialog(
     targetStageIndex: Int?,
     notes: String,
     producedQuantityInput: String = "",
+    plannedQuantity: Int = 1000,
     onNotesChange: (String) -> Unit,
     onProducedQuantityChange: (String) -> Unit = {},
     onDismiss: () -> Unit,
@@ -369,6 +370,11 @@ fun AdvanceStageDialog(
     val nextIndex = targetStageIndex ?: (currentStageIndex + 1)
     val nextStage = DEFAULT_STAGES.getOrNull(nextIndex)
     val isConferenciaStage = nextIndex == 5 || currentStageIndex == 5 || nextIndex >= 5
+    val isAdvancingFromConferencia = currentStageIndex == 5 && nextIndex >= 6
+
+    val enteredQty = producedQuantityInput.trim().toIntOrNull()
+    val isQuantityComplete = enteredQty != null && enteredQty >= plannedQuantity
+    val isBlockedByQuantity = isAdvancingFromConferencia && !isQuantityComplete
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -389,7 +395,7 @@ fun AdvanceStageDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "O.S. número: $osNumber",
+                    text = "O.S. número: $osNumber (Total Previsto: $plannedQuantity un)",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold
@@ -453,20 +459,38 @@ fun AdvanceStageDialog(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.tertiary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Conferência - Quantidade Produzida",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.tertiary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Conferência - Quantidade Produzida",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                }
+                                Surface(
+                                    color = if (isQuantityComplete) StatusDelivered.copy(alpha = 0.2f) else MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = "${enteredQty ?: 0} / $plannedQuantity un",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isQuantityComplete) StatusDelivered else MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             OutlinedTextField(
@@ -477,7 +501,7 @@ fun AdvanceStageDialog(
                                     }
                                 },
                                 label = { Text("Quantidade Produzida (unidades)") },
-                                placeholder = { Text("Ex: 5000") },
+                                placeholder = { Text("Ex: $plannedQuantity") },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Inventory,
@@ -491,6 +515,32 @@ fun AdvanceStageDialog(
                                     .testTag("produced_quantity_input"),
                                 shape = RoundedCornerShape(12.dp),
                                 singleLine = true
+                            )
+                        }
+                    }
+                }
+
+                if (isBlockedByQuantity) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "⚠️ Quantidade Incompleta - Etapa Bloqueada",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "A quantidade conferida (${enteredQty ?: 0} un) é menor que o total exigido ($plannedQuantity un). Não é possível concluir a Conferência nem avançar para a Expedição sem atingir a quantidade total.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onErrorContainer
                             )
                         }
                     }
@@ -522,6 +572,7 @@ fun AdvanceStageDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = onConfirm,
+                        enabled = !isBlockedByQuantity,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.testTag("confirm_advance_stage_button")
                     ) {
